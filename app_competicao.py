@@ -132,13 +132,13 @@ def _buscar_preco_historico(ticker: str, data_ref: str):
         d0 = (dt - timedelta(days=delta)).strftime("%Y-%m-%d")
         d1 = (dt - timedelta(days=delta) + timedelta(days=2)).strftime("%Y-%m-%d")
         try:
-            dados = yf.download(yt, start=d0, end=d1,
-                                auto_adjust=True, progress=False, timeout=10)
-            if not dados.empty:
-                return float(dados["Close"].iloc[-1])
+            tick = yf.Ticker(yt)
+            hist = tick.history(start=d0, end=d1, auto_adjust=True)
+            if not hist.empty:
+                return float(hist["Close"].iloc[-1])
         except Exception:
             pass
-        time.sleep(0.05)
+        time.sleep(0.1)
     return None
 
 
@@ -147,9 +147,10 @@ def _buscar_preco_atual(ticker: str):
     """Último preço de fechamento disponível."""
     yt = ticker.upper() + ".SA"
     try:
-        dados = yf.download(yt, period="5d", auto_adjust=True, progress=False, timeout=10)
-        if not dados.empty:
-            return float(dados["Close"].iloc[-1])
+        tick = yf.Ticker(yt)
+        hist = tick.history(period="5d", auto_adjust=True)
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
     except Exception:
         pass
     return None
@@ -336,14 +337,7 @@ for i, d in enumerate(df_dados):
     val_str   = f"R$ {d['total_atual']:,.2f}" if d["total_atual"] else "—"
     ret_rs_str = f"R$ {d['retorno_rs']:+,.2f}" if d["retorno_rs"] is not None else "—"
 
-    label = (f"{icon} &nbsp; **{d['nome']}** &nbsp;"
-             f"<span style='background:{'#dbeafe' if d['turma']=='A' else '#fce7f3'};"
-             f"color:{'#1d4ed8' if d['turma']=='A' else '#9d174d'};"
-             f"padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:700'>Turma {d['turma']}</span>"
-             f"&nbsp;&nbsp; Retorno: <span style='color:{ret_cor};font-weight:700'>{ret_str}</span>"
-             f"&nbsp; | Alpha: <span style='color:{alpha_cor};font-weight:700'>{alpha_str}</span>"
-             f"&nbsp; | CDI: {cdi_str}"
-             f"&nbsp; | {val_str}")
+    label = f"{icon}  {d['nome']}  [Turma {d['turma']}]   Retorno: {ret_str}  |  Alpha: {alpha_str}  |  CDI: {cdi_str}  |  {val_str}"
 
     with st.expander(label, expanded=False):
         st.caption(f"Integrantes: {d['integrantes']} | Data base: {datetime.strptime(d['data_base'], '%Y-%m-%d').strftime('%d/%m/%Y')}")
