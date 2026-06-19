@@ -16,6 +16,14 @@ import plotly.express as px
 from datetime import datetime, timedelta, date
 from collections import defaultdict
 import time
+import math
+
+def _safe(v):
+    """Retorna None se v for None, NaN ou infinito."""
+    try:
+        return v if (v is not None and math.isfinite(v)) else None
+    except Exception:
+        return None
 
 st.set_page_config(
     page_title="Competição de Carteiras UFPR 2026",
@@ -135,7 +143,7 @@ def _buscar_preco_historico(ticker: str, data_ref: str):
             tick = yf.Ticker(yt)
             hist = tick.history(start=d0, end=d1, auto_adjust=True)
             if not hist.empty:
-                return float(hist["Close"].iloc[-1])
+                return _safe(float(hist["Close"].iloc[-1]))
         except Exception:
             pass
         time.sleep(0.1)
@@ -150,7 +158,7 @@ def _buscar_preco_atual(ticker: str):
         tick = yf.Ticker(yt)
         hist = tick.history(period="5d", auto_adjust=True)
         if not hist.empty:
-            return float(hist["Close"].iloc[-1])
+            return _safe(float(hist["Close"].iloc[-1]))
     except Exception:
         pass
     return None
@@ -275,8 +283,14 @@ hora_atualizacao = datetime.now().strftime("%d/%m/%Y %H:%M")
 # Resumo geral
 total_equipes = len(dados)
 total_investido_geral = sum(d["total_investido"] for d in dados)
-total_atual_geral = sum(d["total_atual"] for d in dados if d["total_atual"])
-ret_geral_pct = (total_atual_geral / total_investido_geral - 1) * 100 if total_atual_geral else 0
+total_atual_geral = sum(
+    d["total_atual"] for d in dados
+    if d["total_atual"] and math.isfinite(d["total_atual"]) and d["total_atual"] > 0
+)
+ret_geral_pct = (
+    (total_atual_geral / total_investido_geral - 1) * 100
+    if total_atual_geral and total_investido_geral else None
+)
 
 lider = dados[0] if dados else None
 
@@ -286,9 +300,9 @@ with cols[0]:
 with cols[1]:
     st.metric("Capital total", f"R$ {total_investido_geral/1e6:.2f}M")
 with cols[2]:
-    st.metric("Valor atual", f"R$ {total_atual_geral/1e6:.3f}M" if total_atual_geral else "—")
+    st.metric("Valor atual", f"R$ {total_atual_geral/1e6:.3f}M" if (total_atual_geral and total_atual_geral > 0) else "—")
 with cols[3]:
-    st.metric("Retorno geral", f"{ret_geral_pct:+.2f}%" if ret_geral_pct else "—")
+    st.metric("Retorno geral", f"{ret_geral_pct:+.2f}%" if (ret_geral_pct is not None) else "—")
 with cols[4]:
     if lider:
         st.metric("Líder atual", lider["nome"], f"{lider['alpha_pct']:+.2f}% alpha" if lider["alpha_pct"] else "")
